@@ -1,0 +1,222 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── HABITS ──────────────────────────────────────────────
+model Habit {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  icon        String     @default("⭐")
+  color       String     @default("#6366f1")
+  category    String     @default("general") // health, study, fitness, mindset, general
+  targetDays  String     @default("1,2,3,4,5,6,7") // comma-sep (1=Mon, 7=Sun)
+  isActive    Boolean    @default(true)
+  isChain     Boolean    @default(false)
+  sortOrder   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  logs        HabitLog[]
+}
+
+model HabitLog {
+  id       String   @id @default(cuid())
+  habitId  String
+  habit    Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  logDate  String // "2026-03-15"
+  status   String   @default("completed") // completed, skipped
+  note     String?
+  loggedAt DateTime @default(now())
+
+  @@unique([habitId, logDate])
+  @@index([logDate])
+}
+
+// ─── SUBJECTS ─────────────────────────────────────────────
+model Subject {
+  id                 String         @id @default(cuid())
+  name               String
+  code               String?
+  color              String         @default("#3b82f6")
+  icon               String?
+  semester           Int?
+  targetHoursPerWeek Int            @default(5)
+  goalGrade          String?
+  xp                 Int            @default(0)
+  level              Int            @default(1)
+  lastActivityDate   String?
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  tasks              Task[]
+  scheduleSlots      ScheduleSlot[]
+  timeSessions       TimeSession[]
+  events             Event[]
+}
+
+// ─── TASKS (TODOS) ─────────────────────────────────────────
+model Task {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  priority      String    @default("medium") // urgent, high, medium, low
+  status        String    @default("pending") // pending, in_progress, completed, cancelled
+  dueDate       String? // "2026-03-20"
+  dueTime       String? // "23:59"
+  estimatedMins Int?
+  tags          String? // comma-separated
+  subjectId     String?
+  subject       Subject?  @relation(fields: [subjectId], references: [id])
+  parentTaskId  String?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ─── SCHEDULE ─────────────────────────────────────────────
+model ScheduleSlot {
+  id           String   @id @default(cuid())
+  title        String
+  subjectId    String?
+  subject      Subject? @relation(fields: [subjectId], references: [id])
+  dayOfWeek    Int // 0=Sun, 1=Mon ... 6=Sat
+  scheduleDate String? // "2026-03-04" — if set, this is a date-specific slot
+  startTime    String // "09:00"
+  endTime      String // "10:30"
+  slotType     String   @default("class") // class, study, break, activity, work
+  location     String?
+  color        String?
+  createdAt    DateTime @default(now())
+  notifiedAt   DateTime? // when the reminder email was sent
+
+  @@index([scheduleDate])
+}
+
+// ─── EVENTS & TECH EVENTS ─────────────────────────────────
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  eventType   String   @default("general") // exam, assignment, presentation, tech_event, hackathon, workshop, holiday, general
+  startDate   String // "2026-03-20"
+  startTime   String? // "09:00"
+  endDate     String? // for multi-day events (tech events etc.)
+  endTime     String?
+  allDay      Boolean  @default(false)
+  subjectId   String?
+  subject     Subject? @relation(fields: [subjectId], references: [id])
+  location    String?
+  color       String?
+  tags        String? // comma-separated: "tech,networking,AI"
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+// ─── TIME SESSIONS (POMODORO + STUDY) ─────────────────────
+model TimeSession {
+  id           String   @id @default(cuid())
+  title        String?
+  subjectId    String?
+  subject      Subject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  taskId       String?
+  sessionType  String   @default("pomodoro") // pomodoro, manual, stopwatch
+  durationMins Int
+  focusRating  Int? // 1-5 stars
+  sessionDate  String // "2026-03-15"
+  startTime    String // "09:00"
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  @@index([sessionDate])
+  @@index([subjectId])
+}
+
+// ─── WORK LOGS (PART-TIME JOB TRACKING) ───────────────────
+model WorkLog {
+  id          String   @id @default(cuid())
+  workDate    String // "2026-03-15"
+  startTime   String? // "09:00"
+  endTime     String? // "17:00"
+  hoursWorked Float // 8.5
+  workplace   String? // name of workplace
+  workType    String   @default("part_time") // part_time, freelance, internship
+  earnings    Float? // optional: how much earned
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([workDate])
+}
+
+// ─── CO-CURRICULAR ACTIVITIES ─────────────────────────────
+model Activity {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  activityType String   @default("general") // sports, club, volunteer, competition, cultural, general
+  activityDate String // "2026-03-15"
+  startTime    String?
+  endTime      String?
+  durationMins Int?
+  location     String?
+  tags         String?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  @@index([activityDate])
+}
+
+// ─── ENERGY LOGS ──────────────────────────────────────────
+model EnergyLog {
+  id       String   @id @default(cuid())
+  logDate  String
+  level    String // low, medium, high
+  loggedAt DateTime @default(now())
+
+  @@unique([logDate])
+}
+
+// ─── DISCIPLINE SCORE HISTORY ─────────────────────────────
+model ScoreSnapshot {
+  id        String   @id @default(cuid())
+  score     Int
+  breakdown String? // JSON
+  snapDate  String
+  createdAt DateTime @default(now())
+
+  @@unique([snapDate])
+}
+
+// ─── WEEKLY REPORTS ──────────────────────────────────────
+model WeeklyReport {
+  id         String   @id @default(cuid())
+  weekStart  String
+  reportData String // JSON blob
+  suggestion String?
+  createdAt  DateTime @default(now())
+
+  @@unique([weekStart])
+}
+
+// ─── APP SETTINGS ─────────────────────────────────────────
+model Settings {
+  id              String  @id @default("singleton")
+  brutalModeOn    Boolean @default(false)
+  weeklyReportDay Int     @default(0) // 0=Sunday
+  pomodoroWork    Int     @default(25)
+  pomodoroBreak   Int     @default(5)
+  pomodoroLong    Int     @default(15)
+  timezone        String  @default("Asia/Kolkata")
+}
+
+// ─── PUSH NOTIFICATIONS ───────────────────────────────────
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}
